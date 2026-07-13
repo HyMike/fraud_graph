@@ -1,0 +1,90 @@
+# ========================
+# Java / Gradle
+# ========================
+.gradle/
+build/
+out/
+!gradle/wrapper/gradle-wrapper.jar
+!**/src/main/**/build/
+!**/src/test/**/build/
+!**/src/main/**/out/
+!**/src/test/**/out/
+
+# ========================
+# IntelliJ IDEA
+# ========================
+.idea/modules.xml
+.idea/jarRepositories.xml
+.idea/libraries/
+*.iws
+*.iml
+*.ipr
+
+# ========================
+# Python (data-generator/)
+# ========================
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+*.egg-info/
+dist/
+.pytest_cache/
+.mypy_cache/
+
+# generated synthetic data — regenerate via generate.py, don't commit
+services/data-generator/output/
+
+# ========================
+# Angular (graph-dashboard/)
+# ========================
+**/node_modules/
+**/.angular/
+
+# ========================
+# Docker
+# ========================
+neo4j_data/
+postgres_data/
+
+# ========================
+# Environment / Secrets
+# ========================
+.env
+.env.local
+.env.*.local
+application-local.properties
+application-local.yml
+
+# ========================
+# Eclipse / NetBeans / VS Code
+# ========================
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+bin/
+!**/src/main/**/bin/
+!**/src/test/**/bin/
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+.vscode/
+
+# ========================
+# Logs
+# ========================
+*.log
+logs/
+
+# ========================
+# macOS
+# ========================
+.DS_Store

@@ -1,0 +1,48 @@
+services:
+  neo4j:
+    image: neo4j:5-community
+    container_name: fraud-graph-neo4j
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    environment:
+      NEO4J_AUTH: neo4j/fraudgraph
+      NEO4J_PLUGINS: '["graph-data-science"]'
+      NEO4J_server_memory_heap_initial__size: 512m
+      NEO4J_server_memory_heap_max__size: 1G
+      NEO4J_server_memory_pagecache_size: 512m
+      NEO4J_dbms_security_procedures_unrestricted: gds.*
+    volumes:
+      - neo4j_data:/data
+      - ../services/data-generator/output:/var/lib/neo4j/import
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:7474 || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  ring-detector:
+    build:
+      context: ../services/ring-detector
+    container_name: fraud-graph-ring-detector
+    ports:
+      - "8081:8081"
+    environment:
+      SPRING_NEO4J_URI: bolt://neo4j:7687
+      SPRING_NEO4J_AUTHENTICATION_USERNAME: neo4j
+      SPRING_NEO4J_AUTHENTICATION_PASSWORD: fraudgraph
+    depends_on:
+      neo4j:
+        condition: service_healthy
+
+  graph-dashboard:
+    build:
+      context: ../dashboard/graph-dashboard
+    container_name: fraud-graph-dashboard
+    ports:
+      - "4200:80"
+    depends_on:
+      - ring-detector
+
+volumes:
+  neo4j_data:

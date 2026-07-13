@@ -1,0 +1,9 @@
+server:
+  port: 8081
+
+spring:
+  neo4j:
+    uri: ${SPRING_NEO4J_URI:bolt://localhost:7687}
+    authentication:
+      username: ${SPRING_NEO4J_AUTHENTICATION_USERNAME:neo4j}
+      password: ${SPRING_NEO4J_AUTHENTICATION_PASSWORD:fraudgraph}
