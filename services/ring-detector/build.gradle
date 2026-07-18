@@ -24,6 +24,18 @@ dependencies {
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 }
 
+// Detection service tests run against the same Neo4j the rest of the project uses
+// (docker compose up -d neo4j) rather than an ephemeral Testcontainers instance,
+// which failed to negotiate with Docker Desktop's socket on this host.
+tasks.register('generateSyntheticData', Exec) {
+	description = 'Regenerates the fixed synthetic fraud graph CSVs (Phase 0) used by ring-detector tests.'
+	workingDir = file('../data-generator')
+	commandLine 'python3', 'generate.py'
+	inputs.file('../data-generator/generate.py')
+	outputs.dir('../data-generator/output')
+}
+
 tasks.named('test') {
+	dependsOn generateSyntheticData
 	useJUnitPlatform()
 }
