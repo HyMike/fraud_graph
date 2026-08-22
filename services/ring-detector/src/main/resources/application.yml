@@ -7,3 +7,10 @@ spring:
     authentication:
       username: ${SPRING_NEO4J_AUTHENTICATION_USERNAME:neo4j}
       password: ${SPRING_NEO4J_AUTHENTICATION_PASSWORD:fraudgraph}
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5433/frauddecisions}
+    username: ${SPRING_DATASOURCE_USERNAME:frauddecisions}
+    password: ${SPRING_DATASOURCE_PASSWORD:frauddecisions}
+  jpa:
+    hibernate:
+      ddl-auto: update

@@ -1,8 +1,5 @@
 package com.fraudgraph.ringdetector.detection;
 
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -39,10 +36,5 @@ public class DetectionController {
             @RequestParam(defaultValue = "4") int maxLength,
             @RequestParam(defaultValue = "25") int limit) {
         return ringDetectionService.detectCycles(maxLength, limit);
-    }
-
-    @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<String> handleBadRequest(IllegalArgumentException ex) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ex.getMessage());
     }
 }

@@ -53,6 +53,23 @@ public class CommunityDetectionService {
         RETURN communityId, hub.id AS hubAccountId, hub.pagerank AS hubPagerank
         """;
 
+    private static final String CLUSTER_NODES_QUERY = """
+        MATCH (n) WHERE (n:Account OR n:Device) AND n.communityId = $communityId
+        RETURN n.id AS id, labels(n)[0] AS type, n.label AS label, n.ringId AS ringId, n.pagerank AS pagerank
+        """;
+
+    // Edges are returned with their real stored direction (unlike the undirected
+    // GDS projection used for Louvain/PageRank), since this is for display.
+    private static final String CLUSTER_EDGES_QUERY = """
+        MATCH (a:Account)-[:TRANSFER]->(b:Account)
+          WHERE a.communityId = $communityId AND b.communityId = $communityId
+        RETURN a.id AS source, b.id AS target, 'TRANSFER' AS relationshipType
+        UNION
+        MATCH (a:Account)-[:USED]->(d:Device)
+          WHERE a.communityId = $communityId AND d.communityId = $communityId
+        RETURN a.id AS source, d.id AS target, 'USED' AS relationshipType
+        """;
+
     private final Neo4jClient neo4jClient;
 
     public CommunityDetectionService(Neo4jClient neo4jClient) {
@@ -134,5 +151,29 @@ public class CommunityDetectionService {
         double hubPagerank = hub != null && hub[1] != null ? (Double) hub[1] : 0.0;
 
         return new CommunityScore(communityId, clusterSize, density, sharedDeviceRatio, score, hubAccountId, hubPagerank);
+    }
+
+    public ClusterGraphResponse getClusterGraph(long communityId) {
+        List<ClusterNode> nodes = neo4jClient.query(CLUSTER_NODES_QUERY)
+            .bindAll(Map.of("communityId", communityId))
+            .fetch().all().stream()
+            .map(row -> new ClusterNode(
+                (String) row.get("id"),
+                (String) row.get("type"),
+                (String) row.get("label"),
+                (String) row.get("ringId"),
+                row.get("pagerank") != null ? (Double) row.get("pagerank") : 0.0))
+            .toList();
+
+        List<ClusterEdge> edges = neo4jClient.query(CLUSTER_EDGES_QUERY)
+            .bindAll(Map.of("communityId", communityId))
+            .fetch().all().stream()
+            .map(row -> new ClusterEdge(
+                (String) row.get("source"),
+                (String) row.get("target"),
+                (String) row.get("relationshipType")))
+            .toList();
+
+        return new ClusterGraphResponse(communityId, nodes, edges);
     }
 }

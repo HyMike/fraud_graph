@@ -1,17 +1,20 @@
 import { TestBed } from '@angular/core/testing';
+import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { vi } from 'vitest';
 import { App } from './app';
 
 // Cytoscape renders to a canvas, which jsdom doesn't implement — mock it here
 // the same way fraud_pipeline's case-dashboard mocks Chart.js for the same reason.
 vi.mock('cytoscape', () => ({
-  default: vi.fn(() => ({})),
+  default: vi.fn(() => ({ destroy: vi.fn() })),
 }));
 
 describe('App', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [App],
+      providers: [provideHttpClient(), provideHttpClientTesting()],
     }).compileComponents();
   });
 

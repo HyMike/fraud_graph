@@ -6,6 +6,7 @@ import org.junit.jupiter.api.TestInstance;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.neo4j.core.Neo4jClient;
+import org.springframework.test.context.TestPropertySource;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -28,6 +29,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 @SpringBootTest
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
+@TestPropertySource(properties = "scheduling.enabled=false")
 class CommunityDetectionServiceTest {
 
     private static final Path LOAD_SCRIPT = Path.of("../../scripts/load-graph.cypher");
@@ -104,5 +106,23 @@ class CommunityDetectionServiceTest {
             .orElseThrow(() -> new AssertionError("no score found for fan-in community"));
 
         assertThat(fanInScore.hubAccountId()).isEqualTo("acct_0401");
+    }
+
+    @Test
+    void clusterGraphForFanInReturnsAllMembersAndTheirRealEdges() {
+        long fanInCommunityId = communityIdOf("acct_0401");
+
+        ClusterGraphResponse graph = communityDetectionService.getClusterGraph(fanInCommunityId);
+
+        // 15 mules + 1 cash-out account, each with its own (unshared) device.
+        long accountNodes = graph.nodes().stream().filter(n -> n.type().equals("Account")).count();
+        long deviceNodes = graph.nodes().stream().filter(n -> n.type().equals("Device")).count();
+        assertThat(accountNodes).isEqualTo(16);
+        assertThat(deviceNodes).isEqualTo(16);
+
+        long transferEdges = graph.edges().stream().filter(e -> e.relationshipType().equals("TRANSFER")).count();
+        long usedEdges = graph.edges().stream().filter(e -> e.relationshipType().equals("USED")).count();
+        assertThat(transferEdges).isEqualTo(15);
+        assertThat(usedEdges).isEqualTo(16);
     }
 }

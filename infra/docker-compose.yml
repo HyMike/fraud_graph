@@ -21,6 +21,23 @@ services:
       timeout: 5s
       retries: 20
 
+  postgres:
+    image: postgres:16
+    container_name: fraud-graph-postgres
+    environment:
+      POSTGRES_DB: frauddecisions
+      POSTGRES_USER: frauddecisions
+      POSTGRES_PASSWORD: frauddecisions
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U frauddecisions"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
   ring-detector:
     build:
       context: ../services/ring-detector
@@ -31,8 +48,13 @@ services:
       SPRING_NEO4J_URI: bolt://neo4j:7687
       SPRING_NEO4J_AUTHENTICATION_USERNAME: neo4j
       SPRING_NEO4J_AUTHENTICATION_PASSWORD: fraudgraph
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/frauddecisions
+      SPRING_DATASOURCE_USERNAME: frauddecisions
+      SPRING_DATASOURCE_PASSWORD: frauddecisions
     depends_on:
       neo4j:
+        condition: service_healthy
+      postgres:
         condition: service_healthy
 
   graph-dashboard:
@@ -46,3 +68,4 @@ services:
 
 volumes:
   neo4j_data:
+  postgres_data:
