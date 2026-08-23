@@ -3,3 +3,56 @@
   height: 600px;
   border: 1px solid #e2e8f0;
 }
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+  list-style: none;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  font-family: system-ui, sans-serif;
+  font-size: 0.8rem;
+  color: #475569;
+}
+
+.legend li {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.legend .hint {
+  color: #94a3b8;
+  font-size: 0.75rem;
+}
+
+.swatch {
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.swatch.node.account {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #3b82f6;
+}
+
+.swatch.node.device {
+  width: 12px;
+  height: 12px;
+  background: #f59e0b;
+  transform: rotate(45deg);
+}
+
+.swatch.edge {
+  width: 22px;
+  height: 0;
+  border-top: 2px solid #94a3b8;
+}
+
+.swatch.edge.used {
+  border-top-color: #fcd34d;
+  border-top-style: dashed;
+}
