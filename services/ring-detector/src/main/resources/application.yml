@@ -13,6 +13,23 @@ spring:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5433/frauddecisions}
     username: ${SPRING_DATASOURCE_USERNAME:frauddecisions}
     password: ${POSTGRES_PASSWORD}
+  # Postgres schema is owned by Flyway migrations (src/main/resources/db/migration).
+  # Hibernate only validates that the entities match it — it never alters the schema.
+  flyway:
+    # Databases created before Flyway was introduced already have the V1 table
+    # (made by the old ddl-auto: update): mark them as V1 and apply only V2+.
+    baseline-on-migrate: true
+    baseline-version: 1
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
+
+# JWT login (see security/). No fallbacks: the app fails fast if these are unset.
+# Locally they come from infra/.env, like the database passwords above.
+auth:
+  jwt:
+    # HMAC-SHA256 signing key, at least 32 characters.
+    signing-key: ${JWT_SIGNING_KEY}
+    ttl: 30m
+  # Password for the four seeded demo users (analyst, lead, auditor, admin).
+  seed-user-password: ${SEED_USER_PASSWORD}

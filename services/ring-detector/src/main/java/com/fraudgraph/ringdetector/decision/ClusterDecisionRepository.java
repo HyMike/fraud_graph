@@ -7,4 +7,6 @@ import java.util.List;
 public interface ClusterDecisionRepository extends JpaRepository<ClusterDecision, Long> {
 
     List<ClusterDecision> findByCommunityIdOrderByDecidedAtDesc(long communityId);
+
+    List<ClusterDecision> findAllByOrderByDecidedAtDesc();
 }

@@ -1,0 +1,36 @@
+.auth-card {
+  max-width: 360px;
+  margin: 3rem auto;
+  padding: 1.5rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+
+  h2 {
+    margin-top: 0;
+  }
+}
+
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+input {
+  padding: 0.4rem;
+}
+
+.error {
+  color: #dc2626;
+  margin: 0;
+}
+
+.notice {
+  color: #92400e;
+}

@@ -1,57 +1,12 @@
-<main>
+<header class="app-header">
   <h1>fraud-graph — ring detector</h1>
-
-  <button (click)="recompute()" [disabled]="loading()">
-    {{ loading() ? 'Recomputing…' : 'Recompute clusters now' }}
-  </button>
-
-  @if (error()) {
-    <p class="error">{{ error() }}</p>
+  @if (auth.current(); as session) {
+    <div class="session">
+      <span>{{ session.username }}</span>
+      <span class="role-badge">{{ session.role }}</span>
+      <a routerLink="/logout">Sign out</a>
+    </div>
   }
+</header>
 
-  @if (clusters().length > 0) {
-    <table class="cluster-list">
-      <thead>
-        <tr>
-          <th>Community</th>
-          <th>Size</th>
-          <th>Density</th>
-          <th>Shared device</th>
-          <th>Suspiciousness</th>
-          <th>Hub account</th>
-          <th>Decision</th>
-        </tr>
-      </thead>
-      <tbody>
-        @for (cluster of clusters(); track cluster.communityId) {
-          <tr [class.selected]="selectedCommunityId() === cluster.communityId">
-            <td>
-              <button (click)="select(cluster.communityId)">{{ cluster.communityId }}</button>
-            </td>
-            <td>{{ cluster.clusterSize }}</td>
-            <td>{{ cluster.density.toFixed(2) }}</td>
-            <td>{{ cluster.sharedDeviceRatio.toFixed(2) }}</td>
-            <td>{{ cluster.suspiciousnessScore.toFixed(2) }}</td>
-            <td>{{ cluster.hubAccountId }}</td>
-            <td>
-              @if (decisionFor(cluster.communityId); as decision) {
-                <span class="decision-badge">{{ decision }}</span>
-              } @else {
-                <input #reasonInput type="text" placeholder="Reason (required)" />
-                <button (click)="decide(cluster.communityId, 'CONFIRM', reasonInput.value)">Confirm</button>
-                <button (click)="decide(cluster.communityId, 'DISMISS', reasonInput.value)">Dismiss</button>
-              }
-            </td>
-          </tr>
-        }
-      </tbody>
-    </table>
-  } @else if (!loading()) {
-    <p>Click "Recompute clusters now" to load flagged clusters.</p>
-  }
-
-  @if (selectedGraph(); as graph) {
-    <h2>Cluster {{ graph.communityId }}</h2>
-    <app-cluster-graph [nodes]="graph.nodes" [edges]="graph.edges" />
-  }
-</main>
+<router-outlet />

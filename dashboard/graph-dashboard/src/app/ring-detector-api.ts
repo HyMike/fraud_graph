@@ -5,7 +5,7 @@ import { Observable } from 'rxjs';
 // Hardcoded rather than environment-based config: the browser always talks to
 // the host-mapped port regardless of whether Angular is served via `ng serve`
 // or from the dockerized nginx container — see infra/docker-compose.yml.
-const API_BASE_URL = 'http://localhost:8081';
+export const API_BASE_URL = 'http://localhost:8081';
 
 export interface CommunityScore {
   communityId: number;
@@ -15,6 +15,8 @@ export interface CommunityScore {
   suspiciousnessScore: number;
   hubAccountId: string | null;
   hubPagerank: number;
+  /** SHA-256 of the sorted member account IDs; communityId alone is renumbered on every recompute. */
+  memberFingerprint: string;
 }
 
 export interface ClusterNode {
@@ -39,11 +41,23 @@ export interface ClusterGraphResponse {
 
 export type Decision = 'CONFIRM' | 'DISMISS';
 
+/** Frozen copy of the cluster at decision time (null on rows recorded before it existed). */
+export interface ClusterSnapshot {
+  accounts: { id: string; label: string | null; ringId: string | null; pagerank: number | null }[];
+  devices: { id: string; fingerprint: string | null }[];
+  deviceUses: { accountId: string; deviceId: string }[];
+  transfers: { id: string; fromAccountId: string; toAccountId: string; amount: number; ts: string }[];
+}
+
 export interface ClusterDecision {
   id: number;
   communityId: number;
   decision: Decision;
   reason: string;
+  decidedBy: string;
+  memberAccountIds: string[];
+  memberFingerprint: string;
+  clusterSnapshot: ClusterSnapshot | null;
   decidedAt: string;
 }
 
@@ -51,6 +65,12 @@ export interface ClusterDecision {
 export class RingDetectorApi {
   constructor(private readonly http: HttpClient) {}
 
+  /** Scores from the last recompute — any role. */
+  getClusters(): Observable<CommunityScore[]> {
+    return this.http.get<CommunityScore[]>(`${API_BASE_URL}/api/clusters`);
+  }
+
+  /** Full GDS recompute — LEAD and ADMIN only. */
   recomputeClusters(): Observable<CommunityScore[]> {
     return this.http.post<CommunityScore[]>(`${API_BASE_URL}/api/clusters/recompute`, {});
   }
@@ -59,10 +79,25 @@ export class RingDetectorApi {
     return this.http.get<ClusterGraphResponse>(`${API_BASE_URL}/api/clusters/${communityId}/graph`);
   }
 
-  submitDecision(communityId: number, decision: Decision, reason: string): Observable<ClusterDecision> {
-    return this.http.post<ClusterDecision>(`${API_BASE_URL}/api/clusters/${communityId}/decision`, {
+  /**
+   * The fingerprint is the one the investigator was shown; the server answers
+   * 409 Conflict if the community has been recomputed into a different set of
+   * accounts since then. Who decided is taken from the login token server-side.
+   */
+  submitDecision(
+    cluster: Pick<CommunityScore, 'communityId' | 'memberFingerprint'>,
+    decision: Decision,
+    reason: string,
+  ): Observable<ClusterDecision> {
+    return this.http.post<ClusterDecision>(`${API_BASE_URL}/api/clusters/${cluster.communityId}/decision`, {
       decision,
       reason,
+      memberFingerprint: cluster.memberFingerprint,
     });
+  }
+
+  /** The audit log, newest first — AUDITOR, LEAD and ADMIN only. */
+  getDecisions(): Observable<ClusterDecision[]> {
+    return this.http.get<ClusterDecision[]>(`${API_BASE_URL}/api/decisions`);
   }
 }

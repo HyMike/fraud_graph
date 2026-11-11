@@ -1,0 +1,102 @@
+<main>
+  @if (canRecompute) {
+    <button (click)="recompute()" [disabled]="loading()">
+      {{ loading() ? 'Recomputing…' : 'Recompute clusters now' }}
+    </button>
+  }
+
+  @if (error()) {
+    <p class="error" role="alert">{{ error() }}</p>
+  }
+
+  @if (clusters().length > 0) {
+    <table class="cluster-list">
+      <thead>
+        <tr>
+          <th>Community</th>
+          <th>Size</th>
+          <th>Density</th>
+          <th>Shared device</th>
+          <th>Suspiciousness</th>
+          <th>Hub account</th>
+          <th>Decision</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (cluster of clusters(); track cluster.communityId) {
+          <tr [class.selected]="selectedCommunityId() === cluster.communityId">
+            <td>
+              <button (click)="select(cluster.communityId)">{{ cluster.communityId }}</button>
+            </td>
+            <td>{{ cluster.clusterSize }}</td>
+            <td>{{ cluster.density.toFixed(2) }}</td>
+            <td>{{ cluster.sharedDeviceRatio.toFixed(2) }}</td>
+            <td>{{ cluster.suspiciousnessScore.toFixed(2) }}</td>
+            <td>{{ cluster.hubAccountId }}</td>
+            <td>
+              @if (decisionFor(cluster); as decision) {
+                <span class="decision-badge">{{ decision }}</span>
+              } @else if (canDecide) {
+                <input #reasonInput type="text" placeholder="Reason (required)" />
+                <button (click)="decide(cluster, 'CONFIRM', reasonInput.value)">Confirm</button>
+                <button (click)="decide(cluster, 'DISMISS', reasonInput.value)">Dismiss</button>
+              } @else {
+                <span class="muted">Read-only</span>
+              }
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  } @else if (!loading()) {
+    <p>
+      No scored clusters yet.
+      @if (canRecompute) {
+        Click "Recompute clusters now" to run community detection.
+      } @else {
+        Ask a lead to run a recompute.
+      }
+    </p>
+  }
+
+  @if (selectedGraph(); as graph) {
+    <h2>Cluster {{ graph.communityId }}</h2>
+    <app-cluster-graph [nodes]="graph.nodes" [edges]="graph.edges" />
+  }
+
+  @if (canReadAuditLog) {
+    <h2>Audit log</h2>
+    @if (auditLog().length > 0) {
+      <table class="cluster-list audit-log">
+        <thead>
+          <tr>
+            <th>When</th>
+            <th>Who</th>
+            <th>Decision</th>
+            <th>Reason</th>
+            <th>Community</th>
+            <th>Accounts</th>
+            <th>Devices</th>
+            <th>Transfers</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of auditLog(); track row.id) {
+            <tr>
+              <td>{{ row.decidedAt }}</td>
+              <td>{{ row.decidedBy }}</td>
+              <td><span class="decision-badge">{{ row.decision }}</span></td>
+              <td>{{ row.reason }}</td>
+              <td>{{ row.communityId }}</td>
+              <td>{{ row.memberAccountIds.length }}</td>
+              <td>{{ row.clusterSnapshot ? row.clusterSnapshot.devices.length : '—' }}</td>
+              <td>{{ row.clusterSnapshot ? row.clusterSnapshot.transfers.length : '—' }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    } @else {
+      <p>No decisions recorded yet.</p>
+    }
+  }
+</main>

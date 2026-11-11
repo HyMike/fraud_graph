@@ -53,6 +53,8 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/frauddecisions
       SPRING_DATASOURCE_USERNAME: frauddecisions
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is not set - copy infra/.env.example to infra/.env}
+      JWT_SIGNING_KEY: ${JWT_SIGNING_KEY:?JWT_SIGNING_KEY is not set - copy infra/.env.example to infra/.env}
+      SEED_USER_PASSWORD: ${SEED_USER_PASSWORD:?SEED_USER_PASSWORD is not set - copy infra/.env.example to infra/.env}
     depends_on:
       neo4j:
         condition: service_healthy

@@ -31,8 +31,9 @@ public class CommunityDetectionService {
     private static final double SHARED_DEVICE_WEIGHT = 0.4;
     private static final double SIZE_WEIGHT = 0.2;
 
+    // Accounts without a communityId (graph loaded but never recomputed) are skipped.
     private static final String CLUSTER_STATS_QUERY = """
-        MATCH (a:Account)
+        MATCH (a:Account) WHERE a.communityId IS NOT NULL
         WITH a.communityId AS communityId, count(a) AS clusterSize
         OPTIONAL MATCH (a1:Account)-[:TRANSFER]-(a2:Account)
           WHERE a1.communityId = communityId AND a2.communityId = communityId AND a1.id < a2.id
@@ -53,6 +54,11 @@ public class CommunityDetectionService {
         RETURN communityId, hub.id AS hubAccountId, hub.pagerank AS hubPagerank
         """;
 
+    private static final String MEMBERS_BY_COMMUNITY_QUERY = """
+        MATCH (a:Account)
+        RETURN a.communityId AS communityId, collect(a.id) AS accountIds
+        """;
+
     private static final String CLUSTER_NODES_QUERY = """
         MATCH (n) WHERE (n:Account OR n:Device) AND n.communityId = $communityId
         RETURN n.id AS id, labels(n)[0] AS type, n.label AS label, n.ringId AS ringId, n.pagerank AS pagerank
@@ -68,6 +74,33 @@ public class CommunityDetectionService {
         MATCH (a:Account)-[:USED]->(d:Device)
           WHERE a.communityId = $communityId AND d.communityId = $communityId
         RETURN a.id AS source, d.id AS target, 'USED' AS relationshipType
+        """;
+
+    // One query, so the accounts, devices and transfers all come from the same
+    // instant — separate queries could straddle a concurrent Louvain recompute.
+    // Devices are filtered by communityId to match what CLUSTER_EDGES_QUERY shows.
+    private static final String CLUSTER_SNAPSHOT_QUERY = """
+        MATCH (a:Account) WHERE a.communityId = $communityId
+        WITH a ORDER BY a.id
+        WITH collect(a) AS accounts
+        CALL {
+          WITH accounts
+          UNWIND accounts AS a
+          MATCH (a)-[t:TRANSFER]->(b:Account) WHERE b.communityId = $communityId
+          WITH a, b, t ORDER BY t.ts, t.id
+          RETURN collect({id: t.id, fromAccountId: a.id, toAccountId: b.id,
+                          amount: t.amount, ts: toString(t.ts)}) AS transfers
+        }
+        CALL {
+          WITH accounts
+          UNWIND accounts AS a
+          MATCH (a)-[:USED]->(d:Device) WHERE d.communityId = $communityId
+          WITH a, d ORDER BY d.id, a.id
+          RETURN collect(DISTINCT {id: d.id, fingerprint: d.fingerprint}) AS devices,
+                 collect({accountId: a.id, deviceId: d.id}) AS deviceUses
+        }
+        RETURN [a IN accounts | {id: a.id, label: a.label, ringId: a.ringId, pagerank: a.pagerank}] AS accounts,
+               devices, deviceUses, transfers
         """;
 
     private final Neo4jClient neo4jClient;
@@ -107,10 +140,14 @@ public class CommunityDetectionService {
             .bindAll(Map.of("graphName", GRAPH_NAME))
             .run();
 
-        return scoreClusters();
+        return currentClusters();
     }
 
-    private List<CommunityScore> scoreClusters() {
+    /**
+     * Scores from the communityId/pagerank values the last recompute wrote, without
+     * running GDS again — cheap enough for any logged-in user to call.
+     */
+    public List<CommunityScore> currentClusters() {
         Map<Long, long[]> stats = new HashMap<>();
         for (Map<String, Object> row : neo4jClient.query(CLUSTER_STATS_QUERY).fetch().all()) {
             stats.put((Long) row.get("communityId"), new long[] {
@@ -127,13 +164,49 @@ public class CommunityDetectionService {
             });
         }
 
+        Map<Long, String> fingerprints = new HashMap<>();
+        for (Map<String, Object> row : neo4jClient.query(MEMBERS_BY_COMMUNITY_QUERY).fetch().all()) {
+            @SuppressWarnings("unchecked")
+            List<String> accountIds = (List<String>) row.get("accountIds");
+            fingerprints.put((Long) row.get("communityId"), ClusterFingerprint.of(accountIds));
+        }
+
         return stats.entrySet().stream()
-            .map(entry -> toScore(entry.getKey(), entry.getValue(), hubs.get(entry.getKey())))
+            .map(entry -> toScore(entry.getKey(), entry.getValue(), hubs.get(entry.getKey()),
+                fingerprints.get(entry.getKey())))
             .sorted((a, b) -> Double.compare(b.suspiciousnessScore(), a.suspiciousnessScore()))
             .toList();
     }
 
-    private CommunityScore toScore(long communityId, long[] stat, Object[] hub) {
+    /** Accounts, devices and transfers of a community right now; empty lists if it no longer exists. */
+    @SuppressWarnings("unchecked")
+    public ClusterSnapshot getClusterSnapshot(long communityId) {
+        Map<String, Object> row = neo4jClient.query(CLUSTER_SNAPSHOT_QUERY)
+            .bindAll(Map.of("communityId", communityId))
+            .fetch().one()
+            .orElseThrow();
+        return new ClusterSnapshot(
+            ((List<Map<String, Object>>) row.get("accounts")).stream()
+                .map(m -> new ClusterSnapshot.Account((String) m.get("id"), (String) m.get("label"),
+                    (String) m.get("ringId"), toDouble(m.get("pagerank"))))
+                .toList(),
+            ((List<Map<String, Object>>) row.get("devices")).stream()
+                .map(m -> new ClusterSnapshot.Device((String) m.get("id"), (String) m.get("fingerprint")))
+                .toList(),
+            ((List<Map<String, Object>>) row.get("deviceUses")).stream()
+                .map(m -> new ClusterSnapshot.DeviceUse((String) m.get("accountId"), (String) m.get("deviceId")))
+                .toList(),
+            ((List<Map<String, Object>>) row.get("transfers")).stream()
+                .map(m -> new ClusterSnapshot.Transfer((String) m.get("id"), (String) m.get("fromAccountId"),
+                    (String) m.get("toAccountId"), toDouble(m.get("amount")), (String) m.get("ts")))
+                .toList());
+    }
+
+    private static Double toDouble(Object value) {
+        return value == null ? null : ((Number) value).doubleValue();
+    }
+
+    private CommunityScore toScore(long communityId, long[] stat, Object[] hub, String memberFingerprint) {
         long clusterSize = stat[0];
         long internalTransferPairs = stat[1];
         long sharedDeviceAccountCount = stat[2];
@@ -150,7 +223,8 @@ public class CommunityDetectionService {
         String hubAccountId = hub != null ? (String) hub[0] : null;
         double hubPagerank = hub != null && hub[1] != null ? (Double) hub[1] : 0.0;
 
-        return new CommunityScore(communityId, clusterSize, density, sharedDeviceRatio, score, hubAccountId, hubPagerank);
+        return new CommunityScore(communityId, clusterSize, density, sharedDeviceRatio, score, hubAccountId, hubPagerank,
+            memberFingerprint);
     }
 
     public ClusterGraphResponse getClusterGraph(long communityId) {

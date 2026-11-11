@@ -19,6 +19,11 @@ regex = '''(?im)[\w.-]*(?:password|passwd|secret|_auth\b)[\w.-]*["']?[ \t]*[:=][
 secretGroup = 1
 keywords = ["password", "passwd", "secret", "_auth"]
 
+[[rules.allowlists]]
+description = "Code assigning one variable to another (this.passwordHash = passwordHash;), not a literal"
+regexTarget = "secret"
+regexes = ['''^[A-Za-z_][A-Za-z0-9_.]*;$''']
+
 [[rules]]
 id = "cypher-shell-password-flag"
 description = "Literal password passed to cypher-shell -p (use \"$NEO4J_PASSWORD\")"
