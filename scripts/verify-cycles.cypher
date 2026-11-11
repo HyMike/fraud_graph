@@ -8,7 +8,7 @@
 // first — that's expected here, not a bug to fix in this verification script.
 //
 // Run with:
-//   cypher-shell -a bolt://localhost:7687 -u neo4j -p fraudgraph -f scripts/verify-cycles.cypher
+//   cypher-shell -a bolt://localhost:7687 -u neo4j -p "$NEO4J_PASSWORD" -f scripts/verify-cycles.cypher
 
 MATCH p = (a:Account)-[:TRANSFER*2..4]->(a)
 WITH [n IN nodes(p)[0..-1] | n.id] AS cycleAccountIds,

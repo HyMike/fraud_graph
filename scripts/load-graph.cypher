@@ -9,7 +9,7 @@
 //      import directory, so file:///accounts.csv etc. resolve correctly)
 //
 // Run with:
-//   cypher-shell -a bolt://localhost:7687 -u neo4j -p fraudgraph -f scripts/load-graph.cypher
+//   cypher-shell -a bolt://localhost:7687 -u neo4j -p "$NEO4J_PASSWORD" -f scripts/load-graph.cypher
 //
 // This script is additive (MERGE, not CREATE) — safe to re-run after regenerating data.
 // To start from a clean graph first, run scripts/reset-graph.cypher.

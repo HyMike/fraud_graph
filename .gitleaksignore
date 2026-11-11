@@ -1,0 +1,16 @@
+# Findings gitleaks should ignore, by fingerprint (commit:file:rule:line).
+#
+# These are the local-dev Neo4j/Postgres passwords that were hardcoded in early
+# commits, before secrets moved to infra/.env. They are already public in git
+# history, so ignoring the historical findings keeps the full-history CI scan
+# green; they must never be reused anywhere real. Any NEW occurrence still fails.
+61672b47e42413861ed083279e1268276ef4c241:infra/docker-compose.yml:hardcoded-password-assignment:30
+61672b47e42413861ed083279e1268276ef4c241:infra/docker-compose.yml:hardcoded-password-assignment:53
+61672b47e42413861ed083279e1268276ef4c241:services/ring-detector/src/main/resources/application.yml:hardcoded-password-assignment:13
+29a2a28bbd1b10a56a8609a8a59b9b220de2c951:scripts/reset-graph.cypher:cypher-shell-password-flag:4
+29a2a28bbd1b10a56a8609a8a59b9b220de2c951:scripts/verify-fanin-fanout.cypher:cypher-shell-password-flag:7
+29a2a28bbd1b10a56a8609a8a59b9b220de2c951:scripts/verify-cycles.cypher:cypher-shell-password-flag:11
+29a2a28bbd1b10a56a8609a8a59b9b220de2c951:scripts/load-graph.cypher:cypher-shell-password-flag:12
+29a2a28bbd1b10a56a8609a8a59b9b220de2c951:infra/docker-compose.yml:hardcoded-password-assignment:9
+29a2a28bbd1b10a56a8609a8a59b9b220de2c951:infra/docker-compose.yml:hardcoded-password-assignment:33
+29a2a28bbd1b10a56a8609a8a59b9b220de2c951:services/ring-detector/src/main/resources/application.yml:hardcoded-password-assignment:9

@@ -38,7 +38,29 @@ tasks.register('generateSyntheticData', Exec) {
 	outputs.dir('../data-generator/output')
 }
 
+// Secrets (NEO4J_PASSWORD, POSTGRES_PASSWORD) live in the gitignored infra/.env —
+// the same file docker compose reads. Real environment variables take precedence.
+def dotEnv = {
+	def f = file('../../infra/.env')
+	def vars = [:]
+	if (f.exists()) {
+		f.eachLine { line ->
+			def t = line.trim()
+			if (t && !t.startsWith('#') && t.contains('=')) {
+				def parts = t.split('=', 2)
+				vars[parts[0].trim()] = parts[1].trim().replaceAll(/^["']|["']$/, '')
+			}
+		}
+	}
+	vars.findAll { k, v -> System.getenv(k) == null }
+}
+
 tasks.named('test') {
 	dependsOn generateSyntheticData
 	useJUnitPlatform()
+	environment dotEnv()
+}
+
+tasks.named('bootRun') {
+	environment dotEnv()
 }

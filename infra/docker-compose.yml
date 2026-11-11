@@ -1,12 +1,14 @@
+# Secrets come from infra/.env (gitignored) — see infra/.env.example.
+# Ports are bound to 127.0.0.1 so they are not reachable from the local network.
 services:
   neo4j:
     image: neo4j:5-community
     container_name: fraud-graph-neo4j
     ports:
-      - "7474:7474"
-      - "7687:7687"
+      - "127.0.0.1:7474:7474"
+      - "127.0.0.1:7687:7687"
     environment:
-      NEO4J_AUTH: neo4j/fraudgraph
+      NEO4J_AUTH: neo4j/${NEO4J_PASSWORD:?NEO4J_PASSWORD is not set - copy infra/.env.example to infra/.env}
       NEO4J_PLUGINS: '["graph-data-science"]'
       NEO4J_server_memory_heap_initial__size: 512m
       NEO4J_server_memory_heap_max__size: 1G
@@ -27,9 +29,9 @@ services:
     environment:
       POSTGRES_DB: frauddecisions
       POSTGRES_USER: frauddecisions
-      POSTGRES_PASSWORD: frauddecisions
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is not set - copy infra/.env.example to infra/.env}
     ports:
-      - "5433:5432"
+      - "127.0.0.1:5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -43,14 +45,14 @@ services:
       context: ../services/ring-detector
     container_name: fraud-graph-ring-detector
     ports:
-      - "8081:8081"
+      - "127.0.0.1:8081:8081"
     environment:
       SPRING_NEO4J_URI: bolt://neo4j:7687
       SPRING_NEO4J_AUTHENTICATION_USERNAME: neo4j
-      SPRING_NEO4J_AUTHENTICATION_PASSWORD: fraudgraph
+      NEO4J_PASSWORD: ${NEO4J_PASSWORD:?NEO4J_PASSWORD is not set - copy infra/.env.example to infra/.env}
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/frauddecisions
       SPRING_DATASOURCE_USERNAME: frauddecisions
-      SPRING_DATASOURCE_PASSWORD: frauddecisions
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is not set - copy infra/.env.example to infra/.env}
     depends_on:
       neo4j:
         condition: service_healthy
@@ -62,7 +64,7 @@ services:
       context: ../dashboard/graph-dashboard
     container_name: fraud-graph-dashboard
     ports:
-      - "4200:80"
+      - "127.0.0.1:4200:80"
     depends_on:
       - ring-detector
 

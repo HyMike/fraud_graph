@@ -1,0 +1,6 @@
+# Run `pre-commit install` once per clone to enable.
+repos:
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.1
+    hooks:
+      - id: gitleaks   # scans staged changes using .gitleaks.toml

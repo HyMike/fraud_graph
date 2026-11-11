@@ -71,6 +71,25 @@ fraud-graph/
 
 - Docker Desktop (running)
 
+### Configure secrets
+
+Passwords are read from `infra/.env`, which is gitignored. Create it from the template and set your own values:
+
+```bash
+cp infra/.env.example infra/.env
+```
+
+Docker Compose loads it automatically, and `./gradlew bootRun` / `./gradlew test` in `services/ring-detector` load it too. To use `cypher-shell` from your shell, export it first: `set -a; source infra/.env; set +a`.
+
+### Secret scanning
+
+[gitleaks](https://github.com/gitleaks/gitleaks) runs as a pre-commit hook and in CI ([.github/workflows/gitleaks.yml](.github/workflows/gitleaks.yml)). Rules are in [.gitleaks.toml](.gitleaks.toml). Enable the hook once per clone:
+
+```bash
+brew install pre-commit gitleaks
+pre-commit install
+```
+
 ### Start the system
 
 ```bash

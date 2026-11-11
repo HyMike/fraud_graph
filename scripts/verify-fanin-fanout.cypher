@@ -4,7 +4,7 @@
 // and nothing else. Fan-out should return nothing (no fan-out ring is planted).
 //
 // Run with:
-//   cypher-shell -a bolt://localhost:7687 -u neo4j -p fraudgraph -f scripts/verify-fanin-fanout.cypher
+//   cypher-shell -a bolt://localhost:7687 -u neo4j -p "$NEO4J_PASSWORD" -f scripts/verify-fanin-fanout.cypher
 
 // Fan-in: accounts receiving from an abnormally high number of distinct senders
 MATCH (sender:Account)-[:TRANSFER]->(receiver:Account)

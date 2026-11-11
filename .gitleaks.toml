@@ -1,0 +1,36 @@
+# gitleaks config — https://github.com/gitleaks/gitleaks
+#
+# Starts from gitleaks' built-in rules (cloud keys, tokens, private keys, ...).
+# Those only flag high-entropy strings or known key formats, so they miss
+# word-like passwords such as `POSTGRES_PASSWORD: hunter2`. The custom rules
+# below catch literal values assigned to password/secret/auth keys in config
+# files; a value that is an env-var reference (${VAR}) is fine.
+
+title = "fraud-graph gitleaks config"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "hardcoded-password-assignment"
+description = "Literal value assigned to a password/secret/auth key (use ${ENV_VAR} instead)"
+# key ... : or = ... literal value (not starting with $, no $ inside, 4+ chars), on one line
+regex = '''(?im)[\w.-]*(?:password|passwd|secret|_auth\b)[\w.-]*["']?[ \t]*[:=][ \t]*["']?([^\s"'$]{4,})["']?[ \t]*(?:#.*)?$'''
+secretGroup = 1
+keywords = ["password", "passwd", "secret", "_auth"]
+
+[[rules]]
+id = "cypher-shell-password-flag"
+description = "Literal password passed to cypher-shell -p (use \"$NEO4J_PASSWORD\")"
+regex = '''cypher-shell\b[^\n]*\s-p[ \t]+([^\s"'$-][^\s"']*)'''
+secretGroup = 1
+keywords = ["cypher-shell"]
+
+[allowlist]
+description = "Placeholders and generated files"
+# Placeholder values in .env.example
+regexTarget = "secret"
+regexes = ['''^change-me$''']
+paths = [
+  '''(^|/)package-lock\.json$''',
+]
