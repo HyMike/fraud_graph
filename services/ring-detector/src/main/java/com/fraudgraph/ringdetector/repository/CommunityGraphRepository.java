@@ -22,9 +22,14 @@ import static com.fraudgraph.ringdetector.constants.DetectionConstants.GDS_GRAPH
 @Repository
 public class CommunityGraphRepository {
 
-    /** Raw per-community counts that the suspiciousness score is computed from. */
+    /**
+     * Raw per-community counts that the suspiciousness score is computed from.
+     * topReceiverSenderCount: the most distinct members that sent money to any one member.
+     * openingSpanDays: days between the first and last member account opening (null if unknown).
+     */
     public record ClusterStats(long communityId, long clusterSize, long internalTransferPairs,
-                               long sharedDeviceAccountCount) {
+                               long sharedDeviceAccountCount, long topReceiverSenderCount,
+                               Long openingSpanDays) {
     }
 
     /** The highest-PageRank account of a community. */
@@ -32,16 +37,35 @@ public class CommunityGraphRepository {
     }
 
     // Accounts without a communityId (graph loaded but never recomputed) are skipped.
+    // Each CALL subquery aggregates per community independently, so one signal's
+    // OPTIONAL MATCH can't multiply the rows another signal counts.
     private static final String CLUSTER_STATS_QUERY = """
         MATCH (a:Account) WHERE a.communityId IS NOT NULL
-        WITH a.communityId AS communityId, count(a) AS clusterSize
-        OPTIONAL MATCH (a1:Account)-[:TRANSFER]-(a2:Account)
-          WHERE a1.communityId = communityId AND a2.communityId = communityId AND a1.id < a2.id
-        WITH communityId, clusterSize, count(DISTINCT [a1.id, a2.id]) AS internalTransferPairs
-        OPTIONAL MATCH (a1:Account)-[:USED]->(d:Device)<-[:USED]-(a2:Account)
-          WHERE a1.communityId = communityId AND a2.communityId = communityId AND a1 <> a2
-        WITH communityId, clusterSize, internalTransferPairs, count(DISTINCT a1.id) AS sharedDeviceAccountCount
-        RETURN communityId, clusterSize, internalTransferPairs, sharedDeviceAccountCount
+        WITH a.communityId AS communityId, count(a) AS clusterSize,
+             min(a.openedAt) AS firstOpened, max(a.openedAt) AS lastOpened
+        CALL {
+          WITH communityId
+          OPTIONAL MATCH (a1:Account)-[:TRANSFER]-(a2:Account)
+            WHERE a1.communityId = communityId AND a2.communityId = communityId AND a1.id < a2.id
+          RETURN count(DISTINCT [a1.id, a2.id]) AS internalTransferPairs
+        }
+        CALL {
+          WITH communityId
+          OPTIONAL MATCH (a1:Account)-[:USED]->(:Device)<-[:USED]-(a2:Account)
+            WHERE a1.communityId = communityId AND a2.communityId = communityId AND a1 <> a2
+          RETURN count(DISTINCT a1.id) AS sharedDeviceAccountCount
+        }
+        CALL {
+          WITH communityId
+          OPTIONAL MATCH (s:Account)-[:TRANSFER]->(r:Account)
+            WHERE s.communityId = communityId AND r.communityId = communityId AND s <> r
+          WITH r, count(DISTINCT s) AS senders
+          RETURN coalesce(max(senders), 0) AS topReceiverSenderCount
+        }
+        RETURN communityId, clusterSize, internalTransferPairs, sharedDeviceAccountCount,
+               topReceiverSenderCount,
+               CASE WHEN firstOpened IS NULL THEN null
+                    ELSE duration.inDays(firstOpened, lastOpened).days END AS openingSpanDays
         """;
 
     // ORDER BY immediately before collect() preserves order within the collected list,
@@ -131,7 +155,9 @@ public class CommunityGraphRepository {
                 (Long) row.get("communityId"),
                 (Long) row.get("clusterSize"),
                 (Long) row.get("internalTransferPairs"),
-                (Long) row.get("sharedDeviceAccountCount")))
+                (Long) row.get("sharedDeviceAccountCount"),
+                (Long) row.get("topReceiverSenderCount"),
+                (Long) row.get("openingSpanDays")))
             .toList();
     }
 

@@ -17,14 +17,18 @@ public final class DetectionConstants {
      */
     public static final long RECOMPUTE_INTERVAL_MS = 5 * 60 * 1000;
 
-    // Suspiciousness score weights. Density and shared-device signal are weighted
-    // equally since either alone can indicate a ring; cluster size contributes a
-    // smooth, small bonus toward tighter (smaller) clusters without a hard cutoff,
-    // since normal traffic tends to form large, sprawling communities and rings
-    // tend to be small and self-contained.
-    public static final double DENSITY_WEIGHT = 0.4;
-    public static final double SHARED_DEVICE_WEIGHT = 0.4;
-    public static final double SIZE_WEIGHT = 0.2;
+    // Suspiciousness score = ringShape × openingBurst (see CommunityDetectionService).
+
+    /** A single account can't be a ring, so smaller communities aren't scored or listed. */
+    public static final int MIN_RING_SIZE = 2;
+
+    /**
+     * Scale of the opening-burst term 1 / (1 + openingSpanDays / scale): accounts all
+     * opened on one day score 1.0, a 30-day spread 0.5, a year's spread under 0.1.
+     * Coordinated rings open their accounts in a batch; families and businesses
+     * accumulate theirs over months or years.
+     */
+    public static final double OPENING_BURST_SCALE_DAYS = 30.0;
 
     // ---- Structural detection (fan-in, fan-out, cycles) ----
 

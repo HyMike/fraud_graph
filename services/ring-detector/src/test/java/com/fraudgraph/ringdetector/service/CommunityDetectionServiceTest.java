@@ -16,6 +16,7 @@ import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -96,6 +97,52 @@ class CommunityDetectionServiceTest {
         assertThat(communityIds.get(0))
             .as("ring %s should be distinct from normal traffic's community", ringId)
             .isNotEqualTo(normalCommunityId);
+    }
+
+    @Test
+    void eachLookAlikeLandsInItsOwnCommunityDistinctFromNormalTraffic() {
+        assertRingIsCohesiveAndDistinctFromNormal("lookalike-family-1");
+        assertRingIsCohesiveAndDistinctFromNormal("lookalike-business-1");
+    }
+
+    @Test
+    void everyPlantedRingRanksAboveTheLookAlikesAndNormalTraffic() {
+        Set<Long> ringCommunityIds = neo4jClient.query(
+                "MATCH (a:Account {label: 'FRAUD_RING'}) RETURN DISTINCT a.communityId AS communityId")
+            .fetch().all().stream()
+            .map(row -> (Long) row.get("communityId"))
+            .collect(Collectors.toSet());
+        assertThat(ringCommunityIds).hasSize(3);
+
+        List<Long> topThree = scores.stream().limit(3).map(CommunityScore::communityId).toList();
+        assertThat(topThree)
+            .as("the three planted rings should be the three highest-scored clusters")
+            .containsExactlyInAnyOrderElementsOf(ringCommunityIds);
+
+        double lowestRingScore = scores.stream()
+            .filter(s -> ringCommunityIds.contains(s.communityId()))
+            .mapToDouble(CommunityScore::suspiciousnessScore).min().orElseThrow();
+        double highestOtherScore = scores.stream()
+            .filter(s -> !ringCommunityIds.contains(s.communityId()))
+            .mapToDouble(CommunityScore::suspiciousnessScore).max().orElseThrow();
+        assertThat(lowestRingScore).isGreaterThan(highestOtherScore);
+    }
+
+    @Test
+    void singleAccountCommunitiesAreNotScored() {
+        assertThat(scores).isNotEmpty().allMatch(s -> s.clusterSize() >= 2);
+    }
+
+    @Test
+    void fanInRingIsCaughtByItsStarShapeDespiteLowDensity() {
+        long fanInCommunityId = communityIdOf("acct_0401");
+        CommunityScore fanIn = scores.stream()
+            .filter(s -> s.communityId() == fanInCommunityId)
+            .findFirst().orElseThrow();
+
+        // 15 of the 120 possible pairs transacted, all into acct_0401.
+        assertThat(fanIn.density()).isLessThan(0.2);
+        assertThat(fanIn.starScore()).isGreaterThan(0.8);
     }
 
     @Test

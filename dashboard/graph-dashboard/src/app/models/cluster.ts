@@ -3,6 +3,10 @@ export interface CommunityScore {
   clusterSize: number;
   density: number;
   sharedDeviceRatio: number;
+  /** How strongly one member receives from all the others, who don't pay each other (fan-in). */
+  starScore: number;
+  /** Days between the first and last member account opening; null if unknown. */
+  openingSpanDays: number | null;
   suspiciousnessScore: number;
   hubAccountId: string | null;
   hubPagerank: number;

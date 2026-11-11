@@ -17,6 +17,8 @@
           <th>Size</th>
           <th>Density</th>
           <th>Shared device</th>
+          <th>Star</th>
+          <th>Opened within</th>
           <th>Suspiciousness</th>
           <th>Hub account</th>
           <th>Decision</th>
@@ -31,6 +33,8 @@
             <td>{{ cluster.clusterSize }}</td>
             <td>{{ cluster.density.toFixed(2) }}</td>
             <td>{{ cluster.sharedDeviceRatio.toFixed(2) }}</td>
+            <td>{{ cluster.starScore.toFixed(2) }}</td>
+            <td>{{ cluster.openingSpanDays === null ? '—' : cluster.openingSpanDays + ' days' }}</td>
             <td>{{ cluster.suspiciousnessScore.toFixed(2) }}</td>
             <td>{{ cluster.hubAccountId }}</td>
             <td>

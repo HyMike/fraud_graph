@@ -34,8 +34,9 @@ Standalone project: no shared code, database, or API with the sibling `fraud_pip
   │    PageRank → within that cluster, who's the central account
   │    Triggered by: a @Scheduled job (periodic) AND a manual "recompute" REST
   │    endpoint (cheap at this graph size, used for on-demand/demo runs)
-  ├─ Suspiciousness scoring: simple weighted formula (density, shared-device
-  │    ratio, cluster size) — not a trained model
+  ├─ Suspiciousness scoring: hand-written formula — ring shape (strongest of
+  │    density, shared-device ratio, star) × account-opening burst — not a
+  │    trained model
   └─ Case audit log → PostgreSQL
         │
         ▼
@@ -77,7 +78,7 @@ Java package: `com.fraudgraph.ringdetector`, organised by layer. A request flows
 | `entity/` | JPA entities for Postgres tables: `ClusterDecision`, `AppUser` |
 | `dto/request/`, `dto/response/` | API request/response records (incl. `ClusterSnapshot`, stored as JSONB on each decision) |
 | `config/` | `SecurityConfig` (JWT + role rules + CORS), `SchedulingConfig`, `SeedUsers` |
-| `constants/` | `ApiPaths` (shared by controllers and `SecurityConfig`), `SecurityConstants`, `DetectionConstants` (score weights, cycle bounds, recompute interval) |
+| `constants/` | `ApiPaths` (shared by controllers and `SecurityConfig`), `SecurityConstants`, `DetectionConstants` (minimum ring size, opening-burst scale, cycle bounds, recompute interval) |
 | `enums/` | `Role` |
 | `exception/` | `ApiExceptionHandler`, `ClusterChangedException` |
 | `util/` | `ClusterFingerprint` (SHA-256 of sorted member IDs) |

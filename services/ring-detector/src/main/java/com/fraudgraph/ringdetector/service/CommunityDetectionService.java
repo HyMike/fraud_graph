@@ -13,15 +13,24 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 
-import static com.fraudgraph.ringdetector.constants.DetectionConstants.DENSITY_WEIGHT;
-import static com.fraudgraph.ringdetector.constants.DetectionConstants.SHARED_DEVICE_WEIGHT;
-import static com.fraudgraph.ringdetector.constants.DetectionConstants.SIZE_WEIGHT;
+import static com.fraudgraph.ringdetector.constants.DetectionConstants.MIN_RING_SIZE;
+import static com.fraudgraph.ringdetector.constants.DetectionConstants.OPENING_BURST_SCALE_DAYS;
 
 /**
  * Phase 3 community detection: Louvain (community membership) + PageRank (centrality),
  * batch/periodic via Neo4j GDS — never triggered per-transaction (see CLAUDE.md).
- * Suspiciousness scoring is a small hand-weighted formula over graph structure
- * (density, shared-device ratio, cluster size), not a trained model.
+ *
+ * Suspiciousness is a hand-written formula, not a trained model:
+ * <pre>
+ *   score = ringShape × openingBurst
+ *   ringShape    = max(density, sharedDeviceRatio, starScore)  — "is this shaped like a ring?"
+ *   openingBurst = 1 / (1 + openingSpanDays / scale)           — "were the accounts opened together?"
+ * </pre>
+ * Shape alone can't separate a ring from a family sharing a device, since both are
+ * small, tight and share hardware; the multiplication requires both the shape and
+ * the coordinated timing. ringShape takes the strongest signal rather than a blend
+ * because a ring only needs to match one fraud pattern (a fan-in star has low density
+ * by definition). Only clusters of at least MIN_RING_SIZE accounts are returned.
  */
 @Service
 public class CommunityDetectionService {
@@ -47,6 +56,7 @@ public class CommunityDetectionService {
         Map<Long, List<String>> members = communityGraphRepository.findMemberAccountIds();
 
         return communityGraphRepository.findClusterStats().stream()
+            .filter(stats -> stats.clusterSize() >= MIN_RING_SIZE)
             .map(stats -> toScore(stats, hubs.get(stats.communityId()),
                 ClusterFingerprint.of(members.get(stats.communityId()))))
             .sorted(Comparator.comparingDouble(CommunityScore::suspiciousnessScore).reversed())
@@ -68,16 +78,26 @@ public class CommunityDetectionService {
         double maxPossiblePairs = clusterSize * (clusterSize - 1) / 2.0;
         double density = maxPossiblePairs > 0 ? stats.internalTransferPairs() / maxPossiblePairs : 0.0;
         double sharedDeviceRatio = clusterSize > 0 ? (double) stats.sharedDeviceAccountCount() / clusterSize : 0.0;
-        double sizeFactor = 1.0 / (1 + clusterSize);
 
-        double score = DENSITY_WEIGHT * density
-            + SHARED_DEVICE_WEIGHT * sharedDeviceRatio
-            + SIZE_WEIGHT * sizeFactor;
+        // Star: one member receives from nearly everyone else, who don't pay each other.
+        double topReceiverInflowShare = clusterSize > 1
+            ? (double) stats.topReceiverSenderCount() / (clusterSize - 1) : 0.0;
+        double starScore = topReceiverInflowShare * (1 - density);
+
+        double ringShape = Math.max(density, Math.max(sharedDeviceRatio, starScore));
+
+        // Unknown opening dates give no evidence of a coordinated batch, so no burst.
+        Long openingSpanDays = stats.openingSpanDays();
+        double openingBurst = openingSpanDays != null
+            ? 1.0 / (1 + openingSpanDays / OPENING_BURST_SCALE_DAYS) : 0.0;
+
+        double score = ringShape * openingBurst;
 
         String hubAccountId = hub != null ? hub.accountId() : null;
         double hubPagerank = hub != null && hub.pagerank() != null ? hub.pagerank() : 0.0;
 
-        return new CommunityScore(stats.communityId(), clusterSize, density, sharedDeviceRatio, score,
+        return new CommunityScore(stats.communityId(), clusterSize, density, sharedDeviceRatio,
+            starScore, openingSpanDays, score,
             hubAccountId, hubPagerank, memberFingerprint);
     }
 }
