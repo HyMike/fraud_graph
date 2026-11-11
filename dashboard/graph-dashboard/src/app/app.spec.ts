@@ -4,7 +4,8 @@ import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
 import { signal } from '@angular/core';
 import { App } from './app';
-import { AuthService, Session } from './auth';
+import { Session } from './models/auth';
+import { AuthService } from './services/auth';
 
 describe('App shell', () => {
   const session = signal<Session | null>(null);

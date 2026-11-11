@@ -65,29 +65,41 @@ Run once, offline — not a long-running service, no API.
 
 ### ring-detector (`services/ring-detector/`, Java/Spring Boot)
 
-Java package: `com.fraudgraph.ringdetector`
+Java package: `com.fraudgraph.ringdetector`, organised by layer. A request flows
+`controller → service → repository`; services never touch `Neo4jClient` or JPA directly.
 
-| Class | Responsibility |
+| Package | Contents |
 |---|---|
-| `GraphLoadController` | Triggers/verifies CSV → Neo4j load (dev/demo convenience) |
-| `StructuralDetectionService` | Cypher: fan-in, fan-out, bounded cycle queries |
-| `CommunityDetectionService` | Calls Neo4j GDS Louvain + PageRank via `Neo4jClient` |
-| `ClusterScoringService` | Weighted suspiciousness formula per community |
-| `ClusterController` | REST: `GET /api/clusters` (ranked), `GET /api/clusters/{id}`, `POST /api/clusters/recompute` |
-| `CaseController` | REST: `POST /api/clusters/{id}/decision` (confirm/dismiss) |
-| `AuditLogService` | Writes investigator decisions to PostgreSQL |
-| `ClusterRecomputeScheduler` | `@Scheduled` periodic re-run of Louvain/PageRank |
+| `controller/` | REST endpoints: `AuthController` (`/api/auth`), `ClusterController` (`/api/clusters`, recompute, graph, decision), `DecisionController` (`/api/decisions` audit log), `DetectionController` (`/api/detection` fan-in/fan-out/cycles) |
+| `service/` | Business logic: `RingDetectionService` (Phase 2 structural checks), `CommunityDetectionService` (Phase 3 suspiciousness scoring), `DecisionService` (records decisions with a cluster snapshot), `TokenService` (issues JWTs) |
+| `repository/` | All database access. Neo4j via `Neo4jClient` + raw Cypher: `RingPatternRepository`, `CommunityGraphRepository` (GDS Louvain/PageRank + cluster reads). Postgres via Spring Data JPA: `ClusterDecisionRepository`, `AppUserRepository` |
+| `scheduler/` | `ClusterRecomputeJob`: the `@Scheduled` periodic Louvain/PageRank recompute (the other trigger is `POST /api/clusters/recompute`) |
+| `entity/` | JPA entities for Postgres tables: `ClusterDecision`, `AppUser` |
+| `dto/request/`, `dto/response/` | API request/response records (incl. `ClusterSnapshot`, stored as JSONB on each decision) |
+| `config/` | `SecurityConfig` (JWT + role rules + CORS), `SchedulingConfig`, `SeedUsers` |
+| `constants/` | `ApiPaths` (shared by controllers and `SecurityConfig`), `SecurityConstants`, `DetectionConstants` (score weights, cycle bounds, recompute interval) |
+| `enums/` | `Role` |
+| `exception/` | `ApiExceptionHandler`, `ClusterChangedException` |
+| `util/` | `ClusterFingerprint` (SHA-256 of sorted member IDs) |
+
+Environment-specific values (DB URLs, secrets, CORS origins) live in `application.yml`, not `constants/`.
 
 Uses `Neo4jClient`/raw Cypher for detection queries — not Spring Data Neo4j entity mapping, which adds friction for graph-algorithm-style access.
 
 ### graph-dashboard (`dashboard/graph-dashboard/`, Angular)
 
-| Component | Purpose |
+Standalone components, organised by type under `src/app/`:
+
+| Folder | Contents |
 |---|---|
-| `ClusterListComponent` | Ranked list of flagged clusters |
-| `ClusterDetailComponent` | Cytoscape.js network view — nodes colored by community, sized by PageRank |
-| `DecisionComponent` | Confirm/Dismiss + reason, calls Case API |
-| `RecomputeButtonComponent` | Calls `POST /api/clusters/recompute` on demand |
+| `components/` | `dashboard` (ranked clusters, confirm/dismiss, recompute, audit log), `cluster-graph` (Cytoscape.js network view), `login`, `logout` |
+| `services/` | `RingDetectorApi` (HTTP calls to ring-detector), `AuthService` (in-memory JWT session) |
+| `guards/` | `authGuard`: redirects to `/login` without a session |
+| `interceptors/` | `authInterceptor`: attaches the Bearer token; a 401 ends the session |
+| `models/` | TypeScript interfaces for API payloads: `cluster.ts`, `decision.ts`, `auth.ts` |
+| `constants/` | `api.ts` (endpoint paths — mirrors `ApiPaths.java`), `roles.ts` (which roles see which controls), `messages.ts` |
+
+The API base URL lives in `src/environments/environment*.ts` (swapped per build configuration via `angular.json`).
 
 ---
 

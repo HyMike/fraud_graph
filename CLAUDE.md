@@ -56,9 +56,22 @@ cd services/ring-detector
 - Community detection (Louvain/PageRank) is batch/periodic — triggered by a `@Scheduled` job and a manual `POST /api/clusters/recompute` endpoint. Never trigger a full-graph GDS recompute per-transaction; that's what the Phase 2 local Cypher checks are for.
 - PostgreSQL is only used for the `cluster_decisions` audit log (Phase 4+) — do not introduce it earlier in the stack.
 
+### Package layout (package-by-layer)
+
+`config/ constants/ controller/ service/ repository/ scheduler/ entity/ dto/{request,response}/ enums/ exception/ util/` — see `docs/ARCHITECTURE.md` for what lives where.
+
+- Controllers call services; services call repositories. **All Cypher and `Neo4jClient` usage lives in `repository/`** (`RingPatternRepository`, `CommunityGraphRepository`) — services hold logic only.
+- Fixed values go in `constants/` (split by topic: `ApiPaths`, `SecurityConstants`, `DetectionConstants`); environment-specific values (URLs, secrets, CORS origins) go in `application.yml`.
+- New endpoints: add the path to `ApiPaths` and use it in both the controller mapping and `SecurityConfig`'s access rule. Use `Role` enum values, not role-name strings.
+- Tests mirror the main package they cover (`controller/`, `service/`, `config/`) and keep literal URL strings so they check the real API contract.
+
 ## Dashboard (dashboard/graph-dashboard/)
 
 Angular SPA with Cytoscape.js for graph rendering. Built in Phase 4 against real `ring-detector` API endpoints, not mocks.
+
+### Folder layout (`src/app/`, organised by type)
+
+`components/ services/ guards/ interceptors/ models/ constants/`, plus `src/environments/` for the API base URL. File names follow the Angular 20 suffix-less style (`auth.ts`, `dashboard.ts`); guards and interceptors use a hyphen (`auth-guard.ts`, `auth-interceptor.ts`). Endpoint paths go in `constants/api.ts`, which mirrors the backend's `ApiPaths.java` — keep them in sync. API payload interfaces go in `models/`, one file per domain.
 
 ```bash
 cd dashboard/graph-dashboard

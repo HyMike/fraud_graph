@@ -24,7 +24,13 @@ spring:
     hibernate:
       ddl-auto: validate
 
-# JWT login (see security/). No fallbacks: the app fails fast if these are unset.
+# Browser origins allowed to call /api/** (the Angular dashboard). Comma-separated.
+app:
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:4200}
+
+# JWT login (see config/SecurityConfig and service/TokenService).
+# No fallbacks: the app fails fast if these are unset.
 # Locally they come from infra/.env, like the database passwords above.
 auth:
   jwt:

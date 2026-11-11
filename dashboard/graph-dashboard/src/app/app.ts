@@ -1,6 +1,6 @@
 import { Component } from '@angular/core';
 import { RouterLink, RouterOutlet } from '@angular/router';
-import { AuthService } from './auth';
+import { AuthService } from './services/auth';
 
 /** Shell: header with the signed-in user and a Sign out link, then the routed page. */
 @Component({
