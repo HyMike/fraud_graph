@@ -15,7 +15,7 @@ Building MVP-first: a thin working slice through Phases 0–4, verified against 
 ```
 fraud-graph/
 ├── services/
-│   ├── ring-detector/       # Java 17, Spring Boot 3, Gradle
+│   ├── ring-detector/       # Java 21, Spring Boot 3, Gradle
 │   └── data-generator/      # Python — offline synthetic-data script, not a running service
 ├── dashboard/
 │   └── graph-dashboard/     # Angular
